@@ -6,7 +6,7 @@ This repository provides scripts and instructions for installing FFmpeg on Windo
 
 ## **Installation Instructions**
 
-### **Windows**
+## **Windows**
 
 **Method 1:** Using `install_ffmpeg_7z.bat`
 
@@ -92,7 +92,7 @@ sudo snap install ffmpeg
 ffmpeg -version
 ```
 
-### **macOS**
+## **macOS**
 
 Using Homebrew (Recommended)
 
