@@ -59,7 +59,7 @@ ffmpeg -version
 
 ### **Video Tutorial For Windows**
 
-Link:[FFmpeg Installation Tutorial](https://youtu.be/5xgegeBL0kw?si=0CyS9BNYHeBiPDxd)
+Link: [FFmpeg Installation Tutorial](https://youtu.be/5xgegeBL0kw?si=0CyS9BNYHeBiPDxd)
 
 ## **Linux**
 
@@ -128,7 +128,7 @@ ffmpeg -version
 
 ### **Video Tutorial For MacOS**
 
-Link:[FFmpeg Installation Tutorial](https://youtu.be/dJ8y-VlMNAo?si=dLee6hrVVoJeCvVO)
+Link: [FFmpeg Installation Tutorial](https://youtu.be/dJ8y-VlMNAo?si=dLee6hrVVoJeCvVO)
 
 ## License
 
