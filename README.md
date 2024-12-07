@@ -130,10 +130,10 @@ ffmpeg -version
 
 Link:[FFmpeg Installation Tutorial](https://youtu.be/dJ8y-VlMNAo?si=dLee6hrVVoJeCvVO)
 
-### License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](https://github.com/oop7/ffmpeg-install-guide/blob/main/LICENSE) file for details.
 
-### Acknowledgments
+## Acknowledgments
 
 Thank you to the FFmpeg community for their ongoing development and support.
