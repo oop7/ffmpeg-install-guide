@@ -132,7 +132,7 @@ Link:[FFmpeg Installation Tutorial](https://youtu.be/dJ8y-VlMNAo?si=dLee6hrVVoJe
 
 ### License
 
-This project is licensed under the MIT License - see the [LICENSE] file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/oop7/ffmpeg-install-guide/blob/main/LICENSE) file for details.
 
 ### Acknowledgments
 
