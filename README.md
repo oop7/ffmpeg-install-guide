@@ -7,43 +7,51 @@ A comprehensive guide and automation scripts for installing FFmpeg across multip
 ## Table of Contents
 - [Features](#features)
 - [Windows Installation](#windows-installation)
-  - [Automated Installation](#automated-installation)
+  - [Automated Installation (Recommended)](#automated-installation-recommended)
   - [Manual Installation](#manual-installation)
 - [macOS Installation](#macos-installation)
 - [Linux Installation](#linux-installation)
 - [Verification](#verification)
-- [Troubleshooting](#troubleshooting)
+- [Building from Source](#building-from-source)
 - [Contributing](#contributing)
 - [License](#license)
 
 ## Features
-- Automated installation scripts for Windows
+- **Modern GUI installer for Windows** with automatic updates
 - Cross-platform installation guides
 - Video tutorials for Windows and macOS
 - Multiple installation methods for each operating system
 - System path configuration included
+- Real-time download progress and hash verification
 
 ## Windows Installation
 
-### Automated Installation
+### Automated Installation (Recommended)
 
-#### Method 1: Using 7-Zip (Recommended)
-**Prerequisites:**
-- 7-Zip, WinRAR, or any 7-Zip fork installed
+#### FFmpeg Installer GUI
+**The easiest way to install FFmpeg on Windows**
 
-**Steps:**
-1. Download [`install_ffmpeg_7z.bat`](https://github.com/oop7/ffmpeg-install-guide/releases/download/v1.0/ffmpeg_7z.bat)
-2. Run the script as administrator (UAC prompt will appear)
-3. Wait for the installation to complete
+![FFmpeg Installer Screenshot](screenshots/ffmpeg-installer-main.png)
 
-#### Method 2: Using ZIP (No Dependencies)
-**Prerequisites:**
-- None (uses built-in Windows tools)
+**Features:**
+- Clean, modern Windows Forms interface
+- Real-time download progress with speed indicator
+- Automatic file integrity verification (SHA256)
+- System PATH configuration
+- Administrator privilege handling
+- Built-in update checker
+- Multiple extraction methods (portable 7z, COM objects, ZIP)
 
-**Steps:**
-1. Download [`install_ffmpeg_zip.bat`](https://github.com/oop7/ffmpeg-install-guide/releases/download/v1.0/ffmpeg_zip.bat)
-2. Run the script as administrator (UAC prompt will appear)
-3. Wait for the installation to complete
+**Download & Usage:**
+1. Download the latest [`FFmpegInstaller.exe`](https://github.com/oop7/ffmpeg-install-guide/releases/latest) from releases
+2. Run as administrator (UAC prompt will appear automatically)
+3. Click "Install FFmpeg" and wait for completion
+4. Restart your command prompt to use `ffmpeg`
+
+**Version:** 2.0.0  
+**Developer:** oop7  
+**Source Code:** Available in this repository  
+**Requirements:** .NET 6.0 Runtime (usually pre-installed on Windows 10/11)
 
 ### Manual Installation
 1. Download FFmpeg from one of these sources:
@@ -118,25 +126,53 @@ After installation, verify FFmpeg is correctly installed:
 ffmpeg -version
 ```
 
-## Troubleshooting
+## Building from Source
+
+### Prerequisites
+- .NET 6.0 SDK or later
+- Windows 10/11
+- Visual Studio 2022 or VS Code (optional)
+
+### Build Instructions
+```powershell
+# Clone the repository
+git clone https://github.com/oop7/ffmpeg-install-guide.git
+cd ffmpeg-install-guide
+
+# Build the application
+dotnet publish FFmpegInstaller.csproj -c Release -p:PublishSingleFile=true --output ./publish
+
+# The executable will be in the ./publish directory
+```
+
+### Development
+```powershell
+# Run in development mode
+dotnet run --project FFmpegInstaller.csproj
+
+# Or open in Visual Studio
+start FFmpegInstaller.sln
+```
 
 ### Common Issues
 1. **Windows Path Not Updated:**
+   - Restart your command prompt
    - Log out and log back in
    - Or restart your computer
 
 2. **Permission Denied:**
-   - Ensure you're running scripts as administrator
-   - Check file permissions
+   - Ensure you're running as administrator
+   - Check antivirus software blocking the installation
 
-3. **Installation Failed:**
-   - Try the alternative installation method
-   - Check your internet connection
-   - Verify system requirements
+3. **FFmpeg command not found after installation:**
+   - Restart command prompt/PowerShell
+   - Check if PATH was updated: `echo $env:PATH` (PowerShell) or `echo %PATH%` (CMD)
+   - Manually add to PATH if needed
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+### How to Contribute:
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
