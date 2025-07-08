@@ -31,7 +31,7 @@ A comprehensive guide and automation scripts for installing FFmpeg across multip
 #### FFmpeg Installer GUI
 **The easiest way to install FFmpeg on Windows**
 
-![FFmpeg Installer Screenshot](screenshots/ffmpeg-installer-main.png)
+![FFmpeg Installer Screenshot](https://github.com/user-attachments/assets/5514c647-80c4-4f8e-a651-93a035b9ac69)
 
 **Features:**
 - Clean, modern Windows Forms interface
