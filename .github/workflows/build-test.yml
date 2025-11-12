@@ -1,0 +1,67 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore FFmpegInstaller.csproj
+      
+      - name: Build application (Debug)
+        run: dotnet build FFmpegInstaller.csproj -c Debug --no-restore
+      
+      - name: Build application (Release)
+        run: |
+          dotnet publish FFmpegInstaller.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained false `
+            -p:PublishSingleFile=true `
+            -p:PublishReadyToRun=false `
+            -p:PublishTrimmed=false `
+            -o ./publish
+      
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          if (Test-Path "./publish/FFmpegInstaller.exe") {
+            Write-Host "✓ Build successful - FFmpegInstaller.exe created"
+            $fileSize = (Get-Item "./publish/FFmpegInstaller.exe").Length / 1MB
+            Write-Host "File size: $($fileSize.ToString('F2')) MB"
+          } else {
+            Write-Error "Build failed - FFmpegInstaller.exe not found!"
+            exit 1
+          }
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: ffmpeg-installer-build-${{ github.sha }}
+          path: ./publish/FFmpegInstaller.exe
+          retention-days: 7
