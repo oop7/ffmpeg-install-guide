@@ -64,6 +64,7 @@ jobs:
             -p:PublishSingleFile=true `
             -p:PublishReadyToRun=true `
             -p:PublishTrimmed=true `
+            -p:_SuppressWinFormsTrimError=true `
             -p:EnableCompressionInSingleFile=true `
             -o ./publish
       
