@@ -16,17 +16,72 @@ using Microsoft.Win32;
 
 namespace FFmpegInstaller
 {
+    public enum FFmpegBuildType
+    {
+        Full,
+        Essentials,
+        Shared
+    }
+
+    public class BuildInfo
+    {
+        public FFmpegBuildType Type { get; set; }
+        public string Name { get; set; }
+        public string DownloadUrl { get; set; }
+        public string HashUrl { get; set; }
+        public string Description { get; set; }
+        public string ApproximateSize { get; set; }
+        public string FileName { get; set; }
+    }
+
     public partial class MainForm : Form
     {
-        private const string DOWNLOAD_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z";
-        private const string HASH_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z.sha256";
         private const string VERSION_URL = "https://www.gyan.dev/ffmpeg/builds/release-version";
         private const string PORTABLE_7Z_URL = "https://www.7-zip.org/a/7za920.zip";
         private const string APP_UPDATE_URL = "https://api.github.com/repos/oop7/ffmpeg-install-guide/releases/latest";
         private const string REPO_URL = "https://github.com/oop7/ffmpeg-install-guide";
-        private const string CURRENT_VERSION = "2.0.0";
+        private const string CURRENT_VERSION = "2.5.0";
+
+        private static readonly Dictionary<FFmpegBuildType, BuildInfo> BuildInfos = new Dictionary<FFmpegBuildType, BuildInfo>
+        {
+            {
+                FFmpegBuildType.Full, new BuildInfo
+                {
+                    Type = FFmpegBuildType.Full,
+                    Name = "Full",
+                    DownloadUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z",
+                    HashUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z.sha256",
+                    Description = "Complete build with all libraries and codecs (recommended for most users)",
+                    ApproximateSize = "~60 MB",
+                    FileName = "ffmpeg-release-full.7z"
+                }
+            },
+            {
+                FFmpegBuildType.Essentials, new BuildInfo
+                {
+                    Type = FFmpegBuildType.Essentials,
+                    Name = "Essentials",
+                    DownloadUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.7z",
+                    HashUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.7z.sha256",
+                    Description = "Minimal build with essential codecs only (recommended for YTSage users)",
+                    ApproximateSize = "~30 MB",
+                    FileName = "ffmpeg-release-essentials.7z"
+                }
+            },
+            {
+                FFmpegBuildType.Shared, new BuildInfo
+                {
+                    Type = FFmpegBuildType.Shared,
+                    Name = "Shared",
+                    DownloadUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z",
+                    HashUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z.sha256",
+                    Description = "Full build with shared libraries (for developers)",
+                    ApproximateSize = "~50 MB",
+                    FileName = "ffmpeg-release-full-shared.7z"
+                }
+            }
+        };
         
-        private readonly string tempFile = Path.Combine(Path.GetTempPath(), "ffmpeg-release-full.7z");
         private readonly string extractDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg");
         private readonly string tempExtractDir = Path.Combine(Path.GetTempPath(), "ffmpeg-extract");
         private readonly string portable7z = Path.Combine(Path.GetTempPath(), "7za.exe");
@@ -35,6 +90,8 @@ namespace FFmpegInstaller
         private string latestVersion = "Unknown";
         private string expectedHash = null;
         private bool isInstalling = false;
+        private FFmpegBuildType selectedBuildType = FFmpegBuildType.Full;
+        private string tempFile;
 
         // UI Controls
         private Label titleLabel;
@@ -54,7 +111,7 @@ namespace FFmpegInstaller
         {
             InitializeComponent();
             CheckAdminPrivileges();
-            _ = LoadVersionAndHashAsync();
+            _ = LoadVersionInfoAsync();
             _ = CheckForUpdatesAsync();
         }
 
@@ -152,7 +209,7 @@ namespace FFmpegInstaller
 
             hashLabel = new Label
             {
-                Text = "Loading hash information...",
+                Text = "Select a build to see hash information",
                 Font = new Font("Segoe UI", 9),
                 ForeColor = Color.LightGray,
                 Location = new Point(20, 75),
@@ -264,29 +321,36 @@ namespace FFmpegInstaller
             }
         }
 
-        private async Task LoadVersionAndHashAsync()
+        private async Task LoadVersionInfoAsync()
         {
             try
             {
                 // Get version
-                var versionTask = httpClient.GetStringAsync(VERSION_URL);
-                var hashTask = httpClient.GetStringAsync(HASH_URL);
-
-                latestVersion = (await versionTask).Trim();
+                latestVersion = (await httpClient.GetStringAsync(VERSION_URL)).Trim();
                 versionLabel.Text = $"Latest Version: {latestVersion}";
                 LogMessage($"Latest FFmpeg version: {latestVersion}");
-
-                // Get hash
-                var hashResponse = await hashTask;
-                expectedHash = hashResponse.Trim().Split()[0];
-                hashLabel.Text = $"SHA256: {expectedHash}";
-                LogMessage($"Expected hash: {expectedHash}");
             }
             catch (Exception ex)
             {
                 versionLabel.Text = "Version: Could not fetch";
+                LogMessage($"Warning: Could not fetch version info: {ex.Message}");
+            }
+        }
+
+        private async Task LoadHashForBuildAsync(FFmpegBuildType buildType)
+        {
+            try
+            {
+                var buildInfo = BuildInfos[buildType];
+                var hashResponse = await httpClient.GetStringAsync(buildInfo.HashUrl);
+                expectedHash = hashResponse.Trim().Split()[0];
+                hashLabel.Text = $"SHA256: {expectedHash}";
+                LogMessage($"Expected hash for {buildInfo.Name} build: {expectedHash}");
+            }
+            catch (Exception ex)
+            {
                 hashLabel.Text = "Hash: Could not fetch";
-                LogMessage($"Warning: Could not fetch version/hash info: {ex.Message}");
+                LogMessage($"Warning: Could not fetch hash info: {ex.Message}");
             }
         }
 
@@ -294,8 +358,23 @@ namespace FFmpegInstaller
         {
             if (isInstalling) return;
 
+            // Show build selection dialog
+            var selectedBuild = ShowBuildSelectionDialog();
+            if (selectedBuild == null)
+            {
+                LogMessage("Installation cancelled by user");
+                return;
+            }
+
+            selectedBuildType = selectedBuild.Value;
+            var buildInfo = BuildInfos[selectedBuildType];
+            tempFile = Path.Combine(Path.GetTempPath(), buildInfo.FileName);
+
+            // Load hash for selected build
+            await LoadHashForBuildAsync(selectedBuildType);
+
             var result = MessageBox.Show(
-                $"This will install FFmpeg {latestVersion} to:\n{extractDir}\n\nAnd add it to your system PATH.\n\nProceed?",
+                $"This will install FFmpeg {latestVersion} ({buildInfo.Name} build) to:\n{extractDir}\n\nAnd add it to your system PATH.\n\nProceed?",
                 "Confirm Installation",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
@@ -320,7 +399,8 @@ namespace FFmpegInstaller
                 progressBar.Value = 10;
 
                 // Step 2: Download FFmpeg
-                UpdateStatus("Downloading FFmpeg...");
+                var buildInfo = BuildInfos[selectedBuildType];
+                UpdateStatus($"Downloading FFmpeg ({buildInfo.Name} build)...");
                 await DownloadFFmpegAsync();
                 progressBar.Value = 40;
 
@@ -347,10 +427,11 @@ namespace FFmpegInstaller
                 TestInstallation();
                 progressBar.Value = 100;
 
-                UpdateStatus("Installation completed successfully!");
-                LogMessage("✓ FFmpeg installation completed successfully!");
+                var buildInfo = BuildInfos[selectedBuildType];
+                UpdateStatus($"Installation of {buildInfo.Name} build completed successfully!");
+                LogMessage($"✓ FFmpeg {buildInfo.Name} build installation completed successfully!");
                 
-                MessageBox.Show("FFmpeg has been installed successfully!\n\nPlease restart your command prompt to use ffmpeg.", 
+                MessageBox.Show($"FFmpeg ({buildInfo.Name} build) has been installed successfully!\n\nPlease restart your command prompt to use ffmpeg.", 
                     "Installation Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -388,9 +469,10 @@ namespace FFmpegInstaller
         {
             try
             {
-                LogMessage("Starting download...");
+                var buildInfo = BuildInfos[selectedBuildType];
+                LogMessage($"Starting download of {buildInfo.Name} build...");
                 
-                using (var response = await httpClient.GetAsync(DOWNLOAD_URL, HttpCompletionOption.ResponseHeadersRead))
+                using (var response = await httpClient.GetAsync(buildInfo.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
                 {
                     response.EnsureSuccessStatusCode();
                     
@@ -832,7 +914,7 @@ namespace FFmpegInstaller
                 LogMessage("Checking for application updates...");
                 
                 // Add User-Agent header to avoid some rate limiting
-                httpClient.DefaultRequestHeaders.Add("User-Agent", "FFmpegInstaller/2.0");
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "FFmpegInstaller/2.5");
                 
                 var response = await httpClient.GetStringAsync(APP_UPDATE_URL);
                 dynamic releaseInfo = Newtonsoft.Json.JsonConvert.DeserializeObject(response);
@@ -879,6 +961,116 @@ namespace FFmpegInstaller
             {
                 LogMessage($"Could not check for updates: {ex.Message}");
             }
+        }
+
+        private FFmpegBuildType? ShowBuildSelectionDialog()
+        {
+            var buildForm = new Form
+            {
+                Text = "Select FFmpeg Build",
+                Size = new Size(500, 380),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = Color.White
+            };
+
+            // Title
+            var titleLabel = new Label
+            {
+                Text = "Choose FFmpeg Build Type",
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                Location = new Point(20, 20),
+                Size = new Size(450, 30),
+                ForeColor = Color.FromArgb(0, 120, 215)
+            };
+
+            // Subtitle
+            var subtitleLabel = new Label
+            {
+                Text = "Select the build that best suits your needs:",
+                Font = new Font("Segoe UI", 9),
+                Location = new Point(20, 55),
+                Size = new Size(450, 20),
+                ForeColor = Color.Gray
+            };
+
+            // Radio buttons for each build
+            var radioButtons = new Dictionary<FFmpegBuildType, RadioButton>();
+            int yPosition = 90;
+
+            foreach (var buildInfo in BuildInfos.Values.OrderBy(b => b.Type))
+            {
+                var radioButton = new RadioButton
+                {
+                    Location = new Point(30, yPosition),
+                    Size = new Size(430, 20),
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    Text = $"{buildInfo.Name} ({buildInfo.ApproximateSize})",
+                    Checked = buildInfo.Type == FFmpegBuildType.Full
+                };
+
+                var descriptionLabel = new Label
+                {
+                    Location = new Point(50, yPosition + 25),
+                    Size = new Size(410, 40),
+                    Font = new Font("Segoe UI", 9),
+                    Text = buildInfo.Description,
+                    ForeColor = Color.FromArgb(64, 64, 64)
+                };
+
+                radioButtons[buildInfo.Type] = radioButton;
+                buildForm.Controls.Add(radioButton);
+                buildForm.Controls.Add(descriptionLabel);
+
+                yPosition += 70;
+            }
+
+            // Continue button
+            var continueButton = new Button
+            {
+                Text = "Continue",
+                Size = new Size(100, 35),
+                Location = new Point(270, 300),
+                BackColor = Color.FromArgb(0, 120, 215),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                DialogResult = DialogResult.OK
+            };
+
+            // Cancel button
+            var cancelButton = new Button
+            {
+                Text = "Cancel",
+                Size = new Size(100, 35),
+                Location = new Point(380, 300),
+                BackColor = Color.FromArgb(160, 160, 160),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9),
+                DialogResult = DialogResult.Cancel
+            };
+
+            buildForm.Controls.AddRange(new Control[] { titleLabel, subtitleLabel, continueButton, cancelButton });
+            buildForm.AcceptButton = continueButton;
+            buildForm.CancelButton = cancelButton;
+
+            var result = buildForm.ShowDialog(this);
+            
+            if (result == DialogResult.OK)
+            {
+                foreach (var kvp in radioButtons)
+                {
+                    if (kvp.Value.Checked)
+                    {
+                        return kvp.Key;
+                    }
+                }
+            }
+
+            return null;
         }
 
         private void AboutButton_Click(object sender, EventArgs e)
