@@ -28,17 +28,17 @@ jobs:
         id: dotnet_version
         shell: pwsh
         run: |
-          # Fetch latest .NET 8.0 LTS version
+          # Fetch latest .NET 10.0 LTS version
           try {
-            $response = Invoke-RestMethod -Uri "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/8.0/releases.json"
+            $response = Invoke-RestMethod -Uri "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/10.0/releases.json"
             $latestRelease = $response.'latest-release'
             $latestSdk = $response.'latest-sdk'
-            Write-Host "Latest .NET 8.0 SDK: $latestSdk"
-            Write-Host "Latest .NET 8.0 Runtime: $latestRelease"
+            Write-Host "Latest .NET 10.0 SDK: $latestSdk"
+            Write-Host "Latest .NET 10.0 Runtime: $latestRelease"
             echo "SDK_VERSION=$latestSdk" >> $env:GITHUB_OUTPUT
           } catch {
-            Write-Host "Using fallback version: 8.0.x"
-            echo "SDK_VERSION=8.0.x" >> $env:GITHUB_OUTPUT
+            Write-Host "Using fallback version: 10.0.x"
+            echo "SDK_VERSION=10.0.x" >> $env:GITHUB_OUTPUT
           }
       
       - name: Setup .NET
