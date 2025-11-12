@@ -399,8 +399,8 @@ namespace FFmpegInstaller
                 progressBar.Value = 10;
 
                 // Step 2: Download FFmpeg
-                var buildInfo = BuildInfos[selectedBuildType];
-                UpdateStatus($"Downloading FFmpeg ({buildInfo.Name} build)...");
+                var currentBuild = BuildInfos[selectedBuildType];
+                UpdateStatus($"Downloading FFmpeg ({currentBuild.Name} build)...");
                 await DownloadFFmpegAsync();
                 progressBar.Value = 40;
 
