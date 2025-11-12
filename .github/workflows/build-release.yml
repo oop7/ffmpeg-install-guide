@@ -28,10 +28,29 @@ jobs:
           echo "TAG=$tag" >> $env:GITHUB_OUTPUT
           echo "Version: $version"
       
+      - name: Get latest .NET SDK version
+        id: dotnet_version
+        shell: pwsh
+        run: |
+          # Fetch latest .NET 8.0 LTS version
+          try {
+            $response = Invoke-RestMethod -Uri "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/8.0/releases.json"
+            $latestRelease = $response.'latest-release'
+            $latestSdk = $response.'latest-sdk'
+            Write-Host "Latest .NET 8.0 SDK: $latestSdk"
+            Write-Host "Latest .NET 8.0 Runtime: $latestRelease"
+            echo "SDK_VERSION=$latestSdk" >> $env:GITHUB_OUTPUT
+            echo "RUNTIME_VERSION=$latestRelease" >> $env:GITHUB_OUTPUT
+          } catch {
+            Write-Host "Using fallback version: 8.0.x"
+            echo "SDK_VERSION=8.0.x" >> $env:GITHUB_OUTPUT
+            echo "RUNTIME_VERSION=8.0.x" >> $env:GITHUB_OUTPUT
+          }
+      
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: ${{ steps.dotnet_version.outputs.SDK_VERSION }}
       
       - name: Restore dependencies
         run: dotnet restore FFmpegInstaller.csproj
