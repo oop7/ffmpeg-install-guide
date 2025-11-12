@@ -108,24 +108,22 @@ jobs:
           
           Write-Host "Release notes generated successfully"
       
-      - name: Calculate checksums
+      - name: Calculate checksum
         shell: pwsh
         run: |
           # Calculate SHA256 for the exe
           $exeHash = (Get-FileHash -Path "./FFmpegInstaller.exe" -Algorithm SHA256).Hash
           Write-Host "FFmpegInstaller.exe SHA256: $exeHash"
           
-          # Save checksums to file
+          # Append to release notes
           @"
-          # SHA256 Checksum
+          
+          ## SHA256 Checksum
           
           ``````
           $exeHash  FFmpegInstaller.exe
           ``````
-          "@ | Out-File -FilePath checksums.txt -Encoding utf8
-          
-          # Append to release notes
-          Get-Content checksums.txt | Out-File -FilePath release_notes.md -Append -Encoding utf8
+          "@ | Out-File -FilePath release_notes.md -Append -Encoding utf8
       
       - name: Create Draft Release
         uses: softprops/action-gh-release@v2
@@ -137,7 +135,6 @@ jobs:
           body_path: release_notes.md
           files: |
             FFmpegInstaller.exe
-            checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
@@ -147,6 +144,5 @@ jobs:
           name: ffmpeg-installer-v${{ steps.get_version.outputs.VERSION }}
           path: |
             FFmpegInstaller.exe
-            checksums.txt
             release_notes.md
           retention-days: 30
