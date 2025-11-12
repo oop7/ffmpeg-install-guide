@@ -60,10 +60,11 @@ jobs:
           dotnet publish FFmpegInstaller.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained false `
+            --self-contained true `
             -p:PublishSingleFile=true `
-            -p:PublishReadyToRun=false `
-            -p:PublishTrimmed=false `
+            -p:PublishReadyToRun=true `
+            -p:PublishTrimmed=true `
+            -p:EnableCompressionInSingleFile=true `
             -o ./publish
       
       - name: Verify build output
@@ -73,20 +74,13 @@ jobs:
             Write-Host "✓ FFmpegInstaller.exe found"
             $fileSize = (Get-Item "./publish/FFmpegInstaller.exe").Length / 1MB
             Write-Host "File size: $($fileSize.ToString('F2')) MB"
+            
+            # Copy to root for release
+            Copy-Item "./publish/FFmpegInstaller.exe" "./FFmpegInstaller.exe"
           } else {
             Write-Error "FFmpegInstaller.exe not found!"
             exit 1
           }
-      
-      - name: Create release archive
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "./publish/FFmpegInstaller.exe" `
-                           -DestinationPath "./FFmpegInstaller-${{ steps.get_version.outputs.VERSION }}.zip"
-          
-          # Also keep the standalone exe
-          Copy-Item "./publish/FFmpegInstaller.exe" `
-                    "./FFmpegInstaller.exe"
       
       - name: Generate release notes
         id: release_notes
@@ -121,17 +115,12 @@ jobs:
           $exeHash = (Get-FileHash -Path "./FFmpegInstaller.exe" -Algorithm SHA256).Hash
           Write-Host "FFmpegInstaller.exe SHA256: $exeHash"
           
-          # Calculate SHA256 for the zip
-          $zipHash = (Get-FileHash -Path "./FFmpegInstaller-${{ steps.get_version.outputs.VERSION }}.zip" -Algorithm SHA256).Hash
-          Write-Host "FFmpegInstaller.zip SHA256: $zipHash"
-          
           # Save checksums to file
           @"
-          # SHA256 Checksums
+          # SHA256 Checksum
           
           ``````
           $exeHash  FFmpegInstaller.exe
-          $zipHash  FFmpegInstaller-${{ steps.get_version.outputs.VERSION }}.zip
           ``````
           "@ | Out-File -FilePath checksums.txt -Encoding utf8
           
@@ -148,7 +137,6 @@ jobs:
           body_path: release_notes.md
           files: |
             FFmpegInstaller.exe
-            FFmpegInstaller-${{ steps.get_version.outputs.VERSION }}.zip
             checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -159,7 +147,6 @@ jobs:
           name: ffmpeg-installer-v${{ steps.get_version.outputs.VERSION }}
           path: |
             FFmpegInstaller.exe
-            FFmpegInstaller-${{ steps.get_version.outputs.VERSION }}.zip
             checksums.txt
             release_notes.md
           retention-days: 30

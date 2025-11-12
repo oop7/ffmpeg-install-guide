@@ -57,10 +57,11 @@ jobs:
           dotnet publish FFmpegInstaller.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained false `
+            --self-contained true `
             -p:PublishSingleFile=true `
-            -p:PublishReadyToRun=false `
-            -p:PublishTrimmed=false `
+            -p:PublishReadyToRun=true `
+            -p:PublishTrimmed=true `
+            -p:EnableCompressionInSingleFile=true `
             -o ./publish
       
       - name: Verify build output
