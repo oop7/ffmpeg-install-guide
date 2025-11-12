@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive guide and automation scripts for installing FFmpeg across multiple operating systems. This repository provides easy-to-follow instructions and automated installation scripts to simplify the FFmpeg setup process.
+A modern Windows application and comprehensive guide for installing FFmpeg across multiple platforms. This repository provides a GUI installer for Windows with automatic configuration, along with easy-to-follow installation instructions for macOS and Linux.
 
 ## Table of Contents
 - [Features](#features)
@@ -18,10 +18,12 @@ A comprehensive guide and automation scripts for installing FFmpeg across multip
 
 ## Features
 - **Modern GUI installer for Windows** with automatic updates
+- **Build Selection** - Choose between Full, Essentials, or Shared FFmpeg builds
+- **Self-Contained** - No .NET installation required
 - Cross-platform installation guides
 - Video tutorials for Windows and macOS
 - Multiple installation methods for each operating system
-- System path configuration included
+- System PATH configuration included
 - Real-time download progress and hash verification
 
 ## Windows Installation
@@ -35,23 +37,26 @@ A comprehensive guide and automation scripts for installing FFmpeg across multip
 
 **Features:**
 - Clean, modern Windows Forms interface
+- **Build Selection** - Choose between Full, Essentials, or Shared builds
 - Real-time download progress with speed indicator
 - Automatic file integrity verification (SHA256)
 - System PATH configuration
 - Administrator privilege handling
 - Built-in update checker
 - Multiple extraction methods (portable 7z, COM objects, ZIP)
+- **Self-contained** - No .NET installation required
 
 **Download & Usage:**
 1. Download the latest [`FFmpegInstaller.exe`](https://github.com/oop7/ffmpeg-install-guide/releases/latest) from releases
 2. Run as administrator (UAC prompt will appear automatically)
-3. Click "Install FFmpeg" and wait for completion
-4. Restart your command prompt to use `ffmpeg`
+3. Select your preferred FFmpeg build (Full/Essentials/Shared)
+4. Click "Install FFmpeg" and wait for completion
+5. Restart your command prompt to use `ffmpeg`
 
-**Version:** 2.0.0  
+**Version:** 2.5.0
 **Developer:** oop7  
 **Source Code:** Available in this repository  
-**Requirements:** .NET 6.0 Runtime (usually pre-installed on Windows 10/11)
+**Requirements:** Windows 10/11 (64-bit) - No .NET installation required
 
 ### Manual Installation
 1. Download FFmpeg from one of these sources:
@@ -59,8 +64,9 @@ A comprehensive guide and automation scripts for installing FFmpeg across multip
    - [Codex FFmpeg Releases](https://github.com/GyanD/codexffmpeg/releases)
 
 2. Choose the appropriate package:
-   - `ffmpeg-release-essentials.zip` for basic functionality
+   - `ffmpeg-release-essentials.zip` for basic functionality (recommended for YTSage users)
    - `ffmpeg-release-full.zip` for complete feature set
+   - `ffmpeg-release-shared.zip` for shared libraries
 
 3. System Setup:
    1. Extract the ZIP file to a permanent location (e.g., `C:\ffmpeg`)
@@ -129,7 +135,7 @@ ffmpeg -version
 ## Building from Source
 
 ### Prerequisites
-- .NET 6.0 SDK or later
+- .NET 10.0 SDK or later
 - Windows 10/11
 - Visual Studio 2022 or VS Code (optional)
 
@@ -139,8 +145,17 @@ ffmpeg -version
 git clone https://github.com/oop7/ffmpeg-install-guide.git
 cd ffmpeg-install-guide
 
-# Build the application
-dotnet publish FFmpegInstaller.csproj -c Release -p:PublishSingleFile=true --output ./publish
+# Build the application (self-contained with trimming)
+dotnet publish FFmpegInstaller.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:PublishReadyToRun=true `
+  -p:PublishTrimmed=true `
+  -p:_SuppressWinFormsTrimError=true `
+  -p:EnableCompressionInSingleFile=true `
+  -o ./publish
 
 # The executable will be in the ./publish directory
 ```
@@ -153,6 +168,30 @@ dotnet run --project FFmpegInstaller.csproj
 # Or open in Visual Studio
 start FFmpegInstaller.sln
 ```
+
+### CI/CD with GitHub Actions
+
+The project includes automated CI/CD workflows:
+
+**Automated Releases:**
+```bash
+# Create and push a version tag to trigger a release build
+git tag v2.5.4
+git push origin v2.5.4
+
+# The workflow will automatically:
+# - Build the self-contained executable
+# - Generate release notes
+# - Calculate SHA256 checksum
+# - Create a draft release on GitHub
+```
+
+**Continuous Integration:**
+- Automatic builds on push to `main` branch
+- Pull request validation
+- Uses latest .NET 10.0 SDK (fetched via web request)
+
+For more details, see the [Workflows README](.github/workflows/README.md).
 
 ### Common Issues
 1. **Windows Path Not Updated:**
