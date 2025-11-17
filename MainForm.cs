@@ -81,11 +81,11 @@ namespace FFmpegInstaller
                 }
             }
         };
-        
+
         private readonly string extractDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg");
         private readonly string tempExtractDir = Path.Combine(Path.GetTempPath(), "ffmpeg-extract");
-        private readonly string portable7z = Path.Combine(Path.GetTempPath(), "7za.exe");
-        
+        private readonly string portable7z = Path.Combine(Path.GetTempPath(), "7z-zip\\7za.exe");
+
         private readonly HttpClient httpClient = new HttpClient();
         private string latestVersion = "Unknown";
         private string expectedHash = null;
@@ -122,7 +122,7 @@ namespace FFmpegInstaller
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
-            
+
             // Load custom icon
             try
             {
@@ -134,7 +134,7 @@ namespace FFmpegInstaller
                     {
                         // Try different sizes to find the best match
                         var originalIcon = new Icon(stream);
-                        
+
                         // Try 48x48 first (common for desktop icons), then 32x32, then original
                         try
                         {
@@ -314,7 +314,7 @@ namespace FFmpegInstaller
                 WindowsPrincipal principal = new WindowsPrincipal(identity);
                 if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
                 {
-                    MessageBox.Show("This application requires administrator privileges to install FFmpeg and modify system PATH.\n\nPlease run as Administrator.", 
+                    MessageBox.Show("This application requires administrator privileges to install FFmpeg and modify system PATH.\n\nPlease run as Administrator.",
                         "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     Application.Exit();
                 }
@@ -398,18 +398,37 @@ namespace FFmpegInstaller
                 CleanupPreviousInstallation();
                 progressBar.Value = 10;
 
-                // Step 2: Download FFmpeg
-                var currentBuild = BuildInfos[selectedBuildType];
-                UpdateStatus($"Downloading FFmpeg ({currentBuild.Name} build)...");
-                await DownloadFFmpegAsync();
-                progressBar.Value = 40;
-
-                // Step 3: Verify hash
-                UpdateStatus("Verifying file integrity...");
-                if (!VerifyFileHash())
+                var downloaded = false;
+                if (File.Exists(tempFile))
                 {
-                    throw new Exception("File integrity verification failed");
+                    if (VerifyFileHash())
+                    {
+                        UpdateStatus("✓ There has downloaded file and hash verification successful");
+                        downloaded = true;
+                        progressBar.Value = 40;
+                    }
+                    else
+                    {
+                        File.Delete(tempFile);
+                    }
                 }
+
+                if (!downloaded)
+                {
+                    // Step 2: Download FFmpeg
+                    var currentBuild = BuildInfos[selectedBuildType];
+                    UpdateStatus($"Downloading FFmpeg ({currentBuild.Name} build)...");
+                    await DownloadFFmpegAsync();
+                    progressBar.Value = 40;
+
+                    // Step 3: Verify hash
+                    UpdateStatus("Verifying file integrity...");
+                    if (!VerifyFileHash())
+                    {
+                        throw new Exception("File integrity verification failed");
+                    }
+                }
+
                 progressBar.Value = 50;
 
                 // Step 4: Extract files
@@ -430,20 +449,20 @@ namespace FFmpegInstaller
                 var buildInfo = BuildInfos[selectedBuildType];
                 UpdateStatus($"Installation of {buildInfo.Name} build completed successfully!");
                 LogMessage($"✓ FFmpeg {buildInfo.Name} build installation completed successfully!");
-                
-                MessageBox.Show($"FFmpeg ({buildInfo.Name} build) has been installed successfully!\n\nPlease restart your command prompt to use ffmpeg.", 
+
+                MessageBox.Show($"FFmpeg ({buildInfo.Name} build) has been installed successfully!\n\nPlease restart your command prompt to use ffmpeg.",
                     "Installation Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 UpdateStatus($"Installation failed: {ex.Message}");
                 LogMessage($"✗ Installation failed: {ex.Message}");
-                MessageBox.Show($"Installation failed:\n\n{ex.Message}", "Installation Error", 
+                MessageBox.Show($"Installation failed:\n\n{ex.Message}", "Installation Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-                CleanupTempFiles();
+                //CleanupTempFiles();//don't clearnup,because the downloaded file can be use next time.
                 isInstalling = false;
                 installButton.Enabled = true;
             }
@@ -471,44 +490,45 @@ namespace FFmpegInstaller
             {
                 var buildInfo = BuildInfos[selectedBuildType];
                 LogMessage($"Starting download of {buildInfo.Name} build...");
-                
+
+
                 using (var response = await httpClient.GetAsync(buildInfo.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
                 {
                     response.EnsureSuccessStatusCode();
-                    
+
                     var totalBytes = response.Content.Headers.ContentLength ?? 0;
                     var downloadedBytes = 0L;
                     var startTime = DateTime.Now;
                     var lastUpdateTime = startTime;
                     var lastDownloadedBytes = 0L;
-                    
+
                     using (var contentStream = await response.Content.ReadAsStreamAsync())
                     using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write))
                     {
                         var buffer = new byte[8192];
                         int bytesRead;
-                        
+
                         while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                         {
                             await fileStream.WriteAsync(buffer, 0, bytesRead);
                             downloadedBytes += bytesRead;
-                            
+
                             var currentTime = DateTime.Now;
                             var timeElapsed = currentTime - lastUpdateTime;
-                            
+
                             // Update speed every 500ms
                             if (timeElapsed.TotalMilliseconds >= 500)
                             {
                                 var bytesSinceLastUpdate = downloadedBytes - lastDownloadedBytes;
                                 var speedBytesPerSecond = bytesSinceLastUpdate / timeElapsed.TotalSeconds;
                                 var speedText = FormatSpeed(speedBytesPerSecond);
-                                
+
                                 UpdateSpeedDisplay(speedText);
-                                
+
                                 lastUpdateTime = currentTime;
                                 lastDownloadedBytes = downloadedBytes;
                             }
-                            
+
                             if (totalBytes > 0)
                             {
                                 var progress = (int)((downloadedBytes * 30) / totalBytes) + 10; // 10-40%
@@ -517,10 +537,10 @@ namespace FFmpegInstaller
                         }
                     }
                 }
-                
+
                 // Clear speed display when download is complete
                 UpdateSpeedDisplay("");
-                
+
                 var fileInfo = new FileInfo(tempFile);
                 LogMessage($"Download completed: {fileInfo.Length / 1024 / 1024:F2} MB");
             }
@@ -546,7 +566,7 @@ namespace FFmpegInstaller
                 {
                     var hashBytes = sha256.ComputeHash(fileStream);
                     var actualHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-                    
+
                     if (actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
                     {
                         LogMessage("✓ File hash verification successful");
@@ -604,7 +624,7 @@ namespace FFmpegInstaller
             try
             {
                 LogMessage("Attempting extraction with portable 7z...");
-                
+
                 if (!File.Exists(portable7z))
                 {
                     LogMessage("Downloading portable 7z...");
@@ -617,14 +637,22 @@ namespace FFmpegInstaller
                     Arguments = $"x \"{tempFile}\" -o\"{tempExtractDir}\" -y",
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    RedirectStandardOutput = true,
+                    RedirectStandardOutput = false,
                     RedirectStandardError = true
                 };
 
                 using (var process = Process.Start(startInfo))
                 {
+                    var error = await process.StandardError.ReadToEndAsync();
                     await process.WaitForExitAsync();
-                    return process.ExitCode == 0;
+
+                    bool success = process.ExitCode == 0;
+                    if (!success && !string.IsNullOrEmpty(error))
+                    {
+                        LogMessage($"Portable 7z extraction failed: {Environment.NewLine}{error}");
+                    }
+
+                    return success;
                 }
             }
             catch (Exception ex)
@@ -637,7 +665,7 @@ namespace FFmpegInstaller
         private async Task DownloadPortable7z()
         {
             var tempZipFile = Path.Combine(Path.GetTempPath(), "7za.zip");
-            
+
             using (var response = await httpClient.GetAsync(PORTABLE_7Z_URL))
             {
                 response.EnsureSuccessStatusCode();
@@ -646,9 +674,9 @@ namespace FFmpegInstaller
                     await response.Content.CopyToAsync(fileStream);
                 }
             }
-            
-            ZipFile.ExtractToDirectory(tempZipFile, Path.GetTempPath());
-            File.Delete(tempZipFile);
+
+            ZipFile.ExtractToDirectory(tempZipFile, Path.GetTempPath() + "7z-zip");
+            //File.Delete(tempZipFile);
         }
 
         private async Task<bool> TryExtractWithComObject()
@@ -656,27 +684,27 @@ namespace FFmpegInstaller
             try
             {
                 LogMessage("Attempting extraction with COM object...");
-                
+
                 dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application"));
                 dynamic zip = shell.NameSpace(tempFile);
                 dynamic dest = shell.NameSpace(tempExtractDir);
-                
+
                 if (zip == null) return false;
-                
+
                 dest.CopyHere(zip.Items(), 4);
-                
+
                 // Wait for extraction to complete
                 var timeout = DateTime.Now.AddSeconds(60);
                 while (DateTime.Now < timeout)
                 {
-                    if (Directory.GetDirectories(tempExtractDir).Length > 0 || 
+                    if (Directory.GetDirectories(tempExtractDir).Length > 0 ||
                         Directory.GetFiles(tempExtractDir).Length > 0)
                     {
                         return true;
                     }
                     await Task.Delay(1000);
                 }
-                
+
                 return false;
             }
             catch (Exception ex)
@@ -691,13 +719,13 @@ namespace FFmpegInstaller
             try
             {
                 LogMessage("Attempting extraction as ZIP...");
-                
+
                 var tempZipFile = Path.ChangeExtension(tempFile, ".zip");
                 File.Copy(tempFile, tempZipFile, true);
-                
+
                 ZipFile.ExtractToDirectory(tempZipFile, tempExtractDir);
                 File.Delete(tempZipFile);
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -772,7 +800,7 @@ namespace FFmpegInstaller
                 using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", true))
                 {
                     var currentPath = key.GetValue("PATH", "", RegistryValueOptions.DoNotExpandEnvironmentNames).ToString();
-                    
+
                     if (!currentPath.Contains(path))
                     {
                         var newPath = string.IsNullOrEmpty(currentPath) ? path : $"{currentPath};{path}";
@@ -797,7 +825,7 @@ namespace FFmpegInstaller
             {
                 var ffmpegDir = Directory.GetDirectories(extractDir).First();
                 var ffmpegExe = Path.Combine(ffmpegDir, "bin", "ffmpeg.exe");
-                
+
                 if (File.Exists(ffmpegExe))
                 {
                     var startInfo = new ProcessStartInfo
@@ -813,7 +841,7 @@ namespace FFmpegInstaller
                     {
                         var output = process.StandardOutput.ReadToEnd();
                         process.WaitForExit();
-                        
+
                         if (process.ExitCode == 0)
                         {
                             var versionLine = output.Split('\n').FirstOrDefault(line => line.StartsWith("ffmpeg version"));
@@ -860,7 +888,7 @@ namespace FFmpegInstaller
                 Invoke(new Action<string>(UpdateStatus), message);
                 return;
             }
-            
+
             statusLabel.Text = message;
             LogMessage(message);
         }
@@ -872,7 +900,7 @@ namespace FFmpegInstaller
                 Invoke(new Action<string>(UpdateSpeedDisplay), speedText);
                 return;
             }
-            
+
             speedLabel.Text = speedText;
         }
 
@@ -895,7 +923,7 @@ namespace FFmpegInstaller
                 Invoke(new Action<string>(LogMessage), message);
                 return;
             }
-            
+
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
             logTextBox.AppendText($"[{timestamp}] {message}\r\n");
             logTextBox.ScrollToCaret();
@@ -912,24 +940,24 @@ namespace FFmpegInstaller
             try
             {
                 LogMessage("Checking for application updates...");
-                
+
                 // Add User-Agent header to avoid some rate limiting
                 httpClient.DefaultRequestHeaders.Add("User-Agent", "FFmpegInstaller/2.5");
-                
+
                 var response = await httpClient.GetStringAsync(APP_UPDATE_URL);
                 dynamic releaseInfo = Newtonsoft.Json.JsonConvert.DeserializeObject(response);
-                
+
                 string latestVersion = releaseInfo.tag_name;
                 if (latestVersion.StartsWith("v"))
                     latestVersion = latestVersion.Substring(1);
-                
+
                 var current = new Version(CURRENT_VERSION);
                 var latest = new Version(latestVersion);
-                
+
                 if (latest > current)
                 {
                     LogMessage($"Update available: v{latestVersion}");
-                    
+
                     var result = MessageBox.Show(
                         $"A new version (v{latestVersion}) is available!\n\n" +
                         $"Current version: v{CURRENT_VERSION}\n" +
@@ -938,7 +966,7 @@ namespace FFmpegInstaller
                         "Update Available",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Information);
-                    
+
                     if (result == DialogResult.Yes)
                     {
                         Process.Start(new ProcessStartInfo
@@ -1058,7 +1086,7 @@ namespace FFmpegInstaller
             buildForm.CancelButton = cancelButton;
 
             var result = buildForm.ShowDialog(this);
-            
+
             if (result == DialogResult.OK)
             {
                 foreach (var kvp in radioButtons)
@@ -1197,10 +1225,10 @@ namespace FFmpegInstaller
             };
             closeButton.Click += (s, e) => aboutForm.Close();
 
-            aboutForm.Controls.AddRange(new Control[] 
-            { 
-                iconPictureBox, titleLabel, versionLabel, descriptionLabel, 
-                developerLabel, repoLinkLabel, copyrightLabel, checkUpdatesButton, closeButton 
+            aboutForm.Controls.AddRange(new Control[]
+            {
+                iconPictureBox, titleLabel, versionLabel, descriptionLabel,
+                developerLabel, repoLinkLabel, copyrightLabel, checkUpdatesButton, closeButton
             });
 
             aboutForm.ShowDialog(this);
