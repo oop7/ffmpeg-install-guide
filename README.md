@@ -18,6 +18,7 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 
 ## Features
 - **Modern GUI installer for Windows** with automatic updates
+- ** Flexible Installation** - Choose user-level (no admin) or system-wide installation
 - **Build Selection** - Choose between Full, Essentials, or Shared FFmpeg builds
 - **Self-Contained** - No .NET installation required
 - Cross-platform installation guides
@@ -37,21 +38,23 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 
 **Features:**
 - Clean, modern Windows Forms interface
+- ** Choose Installation Scope** - User-level (no admin) or System-wide installation
 - **Build Selection** - Choose between Full, Essentials, or Shared builds
 - Real-time download progress with speed indicator
 - Automatic file integrity verification (SHA256)
-- System PATH configuration
-- Administrator privilege handling
 - Built-in update checker
 - Multiple extraction methods (portable 7z, COM objects, ZIP)
 - **Self-contained** - No .NET installation required
 
 **Download & Usage:**
 1. Download the latest [`FFmpegInstaller.exe`](https://github.com/oop7/ffmpeg-install-guide/releases/latest) from releases
-2. Run as administrator (UAC prompt will appear automatically)
-3. Select your preferred FFmpeg build (Full/Essentials/Shared)
-4. Click "Install FFmpeg" and wait for completion
-5. Restart your command prompt to use `ffmpeg`
+2. **Run the installer** (no admin needed for user installation!)
+3. **Choose installation scope:**
+   - **User Installation** (Recommended) - No admin required, installs to your account only
+   - **System-wide Installation** - Requires admin (UAC prompt), available to all users
+4. Select your preferred FFmpeg build (Full/Essentials/Shared)
+5. Click "Install FFmpeg" and wait for completion
+6. Restart your command prompt to use `ffmpeg`
 
 **Version:** 2.5.9
 **Developer:** oop7  
