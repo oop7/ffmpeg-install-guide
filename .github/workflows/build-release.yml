@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on version tags like v2.5.2, v3.0.1, etc.
+      - 'v*.*.*'  # Triggers on version tags like v2.5.7, v3.0.1, etc.
 
 permissions:
   contents: write
