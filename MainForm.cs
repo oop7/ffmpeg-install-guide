@@ -117,7 +117,22 @@ namespace FFmpegInstaller
         public MainForm()
         {
             InitializeComponent();
-            ShowInstallationScopeDialog();
+            
+            // Check if restarted with --system flag (after UAC elevation)
+            string[] args = Environment.GetCommandLineArgs();
+            if (args.Length > 1 && args[1] == "--system")
+            {
+                // Skip dialog, directly set to system-wide
+                installationScope = InstallationScope.System;
+                LogMessage("Installation scope: system-wide (elevated)");
+                statusLabel.Text = "Ready to install (system-wide)";
+            }
+            else
+            {
+                // Show dialog for user to choose
+                ShowInstallationScopeDialog();
+            }
+            
             CheckAdminPrivileges();
             _ = LoadVersionInfoAsync();
             _ = CheckForUpdatesAsync();
@@ -320,7 +335,7 @@ namespace FFmpegInstaller
             var scopeForm = new Form
             {
                 Text = "Installation Scope",
-                Size = new Size(500, 280),
+                Size = new Size(500, 330),
                 StartPosition = FormStartPosition.CenterParent,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 MaximizeBox = false,
@@ -383,13 +398,13 @@ namespace FFmpegInstaller
             var continueButton = new Button
             {
                 Text = "Continue",
-                Location = new Point(290, 205),
-                Size = new Size(90, 30),
+                Location = new Point(280, 245),
+                Size = new Size(100, 35),
                 DialogResult = DialogResult.OK,
                 BackColor = Color.FromArgb(0, 120, 215),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9)
+                Font = new Font("Segoe UI", 9, FontStyle.Bold)
             };
             continueButton.FlatAppearance.BorderSize = 0;
             scopeForm.AcceptButton = continueButton;
@@ -397,8 +412,8 @@ namespace FFmpegInstaller
             var cancelButton = new Button
             {
                 Text = "Cancel",
-                Location = new Point(390, 205),
-                Size = new Size(90, 30),
+                Location = new Point(390, 245),
+                Size = new Size(90, 35),
                 DialogResult = DialogResult.Cancel,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9)
@@ -436,9 +451,32 @@ namespace FFmpegInstaller
                     WindowsPrincipal principal = new WindowsPrincipal(identity);
                     if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
                     {
-                        MessageBox.Show("System-wide installation requires administrator privileges.\n\nPlease run as Administrator or choose User Installation instead.",
-                            "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        Application.Exit();
+                        // Restart the application with admin privileges
+                        try
+                        {
+                            var startInfo = new ProcessStartInfo
+                            {
+                                FileName = Application.ExecutablePath,
+                                UseShellExecute = true,
+                                Verb = "runas", // Request elevation
+                                Arguments = "--system" // Pass flag to indicate system-wide install
+                            };
+                            
+                            Process.Start(startInfo);
+                            Application.Exit();
+                        }
+                        catch (Exception ex)
+                        {
+                            // User cancelled UAC prompt or other error
+                            LogMessage($"Failed to elevate privileges: {ex.Message}");
+                            MessageBox.Show("Administrator privileges are required for system-wide installation.\n\nPlease approve the UAC prompt or choose User Installation instead.",
+                                "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            Application.Exit();
+                        }
+                    }
+                    else
+                    {
+                        LogMessage("System-wide installation with administrator privileges");
                     }
                 }
             }
