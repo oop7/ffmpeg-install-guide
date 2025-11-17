@@ -130,7 +130,12 @@ namespace FFmpegInstaller
             else
             {
                 // Show dialog for user to choose
-                ShowInstallationScopeDialog();
+                if (!ShowInstallationScopeDialog())
+                {
+                    // User cancelled - close immediately without showing form
+                    this.Load += (s, e) => this.Close();
+                    return;
+                }
             }
             
             CheckAdminPrivileges();
@@ -330,7 +335,7 @@ namespace FFmpegInstaller
             this.Controls.AddRange(new Control[] { headerPanel, statusLabel, speedLabel, progressBar, logTextBox, buttonPanel });
         }
 
-        private void ShowInstallationScopeDialog()
+        private bool ShowInstallationScopeDialog()
         {
             var scopeForm = new Form
             {
@@ -433,11 +438,12 @@ namespace FFmpegInstaller
                 var scopeText = installationScope == InstallationScope.User ? "user-level" : "system-wide";
                 LogMessage($"Installation scope selected: {scopeText}");
                 statusLabel.Text = $"Ready to install ({scopeText})";
+                return true;
             }
             else
             {
                 LogMessage("Installation cancelled by user");
-                Application.Exit();
+                return false;
             }
         }
 
@@ -463,7 +469,7 @@ namespace FFmpegInstaller
                             };
                             
                             Process.Start(startInfo);
-                            Application.Exit();
+                            Environment.Exit(0); // Immediate exit to prevent duplicate windows
                         }
                         catch (Exception ex)
                         {
@@ -471,7 +477,7 @@ namespace FFmpegInstaller
                             LogMessage($"Failed to elevate privileges: {ex.Message}");
                             MessageBox.Show("Administrator privileges are required for system-wide installation.\n\nPlease approve the UAC prompt or choose User Installation instead.",
                                 "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            Application.Exit();
+                            Environment.Exit(1);
                         }
                     }
                     else
