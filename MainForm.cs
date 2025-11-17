@@ -638,13 +638,18 @@ namespace FFmpegInstaller
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = false,
-                    RedirectStandardError = false
+                    RedirectStandardError = true
                 };
 
                 using (var process = Process.Start(startInfo))
                 {
+                    var error = await process.StandardError.ReadToEndAsync();
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        LogMessage($"Portable 7z extraction failed: {Environment.NewLine}{error}");
+                    }
                     await process.WaitForExitAsync();
-                    return process.ExitCode == 0;
+                    return process.ExitCode == 0 && string.IsNullOrEmpty(error);
                 }
             }
             catch (Exception ex)
