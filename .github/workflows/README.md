@@ -6,7 +6,7 @@ This directory contains CI/CD workflows for the FFmpeg Installer project.
 
 ### 1. Build and Release (`build-release.yml`)
 
-**Trigger**: Push a version tag (e.g., `v2.5.0`)
+**Trigger**: Push a version tag (e.g., `v2.5.2`)
 
 **Purpose**: Automatically builds the installer and creates a draft GitHub release.
 
@@ -21,12 +21,12 @@ This directory contains CI/CD workflows for the FFmpeg Installer project.
 
 ```bash
 # Create and push a version tag
-git tag v2.5.0
-git push origin v2.5.0
+git tag v2.5.2
+git push origin v2.5.2
 
 # Or create an annotated tag with message
-git tag -a v2.5.0 -m "Release version 2.5.0 - Added build selection feature"
-git push origin v2.5.0
+git tag -a v2.5.2 -m "Release version 2.5.2 - Added build selection feature"
+git push origin v2.5.2
 ```
 
 After the workflow completes:
@@ -53,7 +53,7 @@ After the workflow completes:
 ## Version Tag Format
 
 Use semantic versioning with a `v` prefix:
-- `v2.5.0` - Major.Minor.Patch
+- `v2.5.2` - Major.Minor.Patch
 - `v3.0.0` - Major version bump
 - `v2.5.1` - Patch release
 
@@ -113,8 +113,8 @@ git commit -m "Add new feature X"
 git push origin main
 
 # 2. Create and push version tag
-git tag v2.5.0
-git push origin v2.5.0
+git tag v2.5.2
+git push origin v2.5.2
 
 # 3. Workflow automatically:
 #    - Builds the installer
