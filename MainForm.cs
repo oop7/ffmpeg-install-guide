@@ -23,6 +23,12 @@ namespace FFmpegInstaller
         Shared
     }
 
+    public enum InstallationScope
+    {
+        User,
+        System
+    }
+
     public class BuildInfo
     {
         public FFmpegBuildType Type { get; set; }
@@ -91,6 +97,7 @@ namespace FFmpegInstaller
         private string expectedHash = null;
         private bool isInstalling = false;
         private FFmpegBuildType selectedBuildType = FFmpegBuildType.Full;
+        private InstallationScope installationScope = InstallationScope.User;
         private string tempFile;
 
         // UI Controls
@@ -110,6 +117,7 @@ namespace FFmpegInstaller
         public MainForm()
         {
             InitializeComponent();
+            ShowInstallationScopeDialog();
             CheckAdminPrivileges();
             _ = LoadVersionInfoAsync();
             _ = CheckForUpdatesAsync();
@@ -307,17 +315,136 @@ namespace FFmpegInstaller
             this.Controls.AddRange(new Control[] { headerPanel, statusLabel, speedLabel, progressBar, logTextBox, buttonPanel });
         }
 
+        private void ShowInstallationScopeDialog()
+        {
+            var scopeForm = new Form
+            {
+                Text = "Installation Scope",
+                Size = new Size(500, 280),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                BackColor = Color.White
+            };
+
+            var titleLabel = new Label
+            {
+                Text = "Choose Installation Scope",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(20, 20),
+                Size = new Size(440, 25)
+            };
+
+            var descLabel = new Label
+            {
+                Text = "How would you like to install FFmpeg?",
+                Font = new Font("Segoe UI", 9),
+                ForeColor = Color.Gray,
+                Location = new Point(20, 50),
+                Size = new Size(440, 20)
+            };
+
+            var userRadio = new RadioButton
+            {
+                Text = "User Installation (Recommended)",
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                Location = new Point(30, 85),
+                Size = new Size(250, 20),
+                Checked = true
+            };
+
+            var userDesc = new Label
+            {
+                Text = "• No administrator privileges required\n• Available only for your user account\n• Installed in your AppData folder",
+                Font = new Font("Segoe UI", 8.25f),
+                ForeColor = Color.DarkGray,
+                Location = new Point(50, 108),
+                Size = new Size(400, 50)
+            };
+
+            var systemRadio = new RadioButton
+            {
+                Text = "System-wide Installation",
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                Location = new Point(30, 160),
+                Size = new Size(250, 20)
+            };
+
+            var systemDesc = new Label
+            {
+                Text = "• Requires administrator privileges\n• Available for all users on this computer\n• Installed in Program Files or similar",
+                Font = new Font("Segoe UI", 8.25f),
+                ForeColor = Color.DarkGray,
+                Location = new Point(50, 183),
+                Size = new Size(400, 50)
+            };
+
+            var continueButton = new Button
+            {
+                Text = "Continue",
+                Location = new Point(290, 205),
+                Size = new Size(90, 30),
+                DialogResult = DialogResult.OK,
+                BackColor = Color.FromArgb(0, 120, 215),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9)
+            };
+            continueButton.FlatAppearance.BorderSize = 0;
+            scopeForm.AcceptButton = continueButton;
+
+            var cancelButton = new Button
+            {
+                Text = "Cancel",
+                Location = new Point(390, 205),
+                Size = new Size(90, 30),
+                DialogResult = DialogResult.Cancel,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9)
+            };
+
+            scopeForm.Controls.AddRange(new Control[] {
+                titleLabel, descLabel,
+                userRadio, userDesc,
+                systemRadio, systemDesc,
+                continueButton, cancelButton
+            });
+
+            var result = scopeForm.ShowDialog(this);
+            if (result == DialogResult.OK)
+            {
+                installationScope = userRadio.Checked ? InstallationScope.User : InstallationScope.System;
+                var scopeText = installationScope == InstallationScope.User ? "user-level" : "system-wide";
+                LogMessage($"Installation scope selected: {scopeText}");
+                statusLabel.Text = $"Ready to install ({scopeText})";
+            }
+            else
+            {
+                LogMessage("Installation cancelled by user");
+                Application.Exit();
+            }
+        }
+
         private void CheckAdminPrivileges()
         {
-            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+            // Only require admin if system-wide installation is selected
+            if (installationScope == InstallationScope.System)
             {
-                WindowsPrincipal principal = new WindowsPrincipal(identity);
-                if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
+                using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
                 {
-                    MessageBox.Show("This application requires administrator privileges to install FFmpeg and modify system PATH.\n\nPlease run as Administrator.",
-                        "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    Application.Exit();
+                    WindowsPrincipal principal = new WindowsPrincipal(identity);
+                    if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
+                    {
+                        MessageBox.Show("System-wide installation requires administrator privileges.\n\nPlease run as Administrator or choose User Installation instead.",
+                            "Administrator Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        Application.Exit();
+                    }
                 }
+            }
+            else
+            {
+                LogMessage("User installation selected - administrator privileges not required");
             }
         }
 
@@ -447,10 +574,15 @@ namespace FFmpegInstaller
                 progressBar.Value = 100;
 
                 var buildInfo = BuildInfos[selectedBuildType];
+                var scopeText = installationScope == InstallationScope.User ? "user-level" : "system-wide";
                 UpdateStatus($"Installation of {buildInfo.Name} build completed successfully!");
-                LogMessage($"✓ FFmpeg {buildInfo.Name} build installation completed successfully!");
+                LogMessage($"✓ FFmpeg {buildInfo.Name} build ({scopeText}) installation completed successfully!");
 
-                MessageBox.Show($"FFmpeg ({buildInfo.Name} build) has been installed successfully!\n\nPlease restart your command prompt to use ffmpeg.",
+                var restartMessage = installationScope == InstallationScope.User
+                    ? "Please restart your command prompt or applications to use ffmpeg."
+                    : "Please restart your command prompt to use ffmpeg.";
+
+                MessageBox.Show($"FFmpeg ({buildInfo.Name} build) has been installed successfully as a {scopeText} installation!\n\n{restartMessage}",
                     "Installation Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -797,7 +929,23 @@ namespace FFmpegInstaller
         {
             try
             {
-                using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", true))
+                RegistryKey key;
+                string pathType;
+
+                if (installationScope == InstallationScope.User)
+                {
+                    // User-level PATH (HKEY_CURRENT_USER)
+                    key = Registry.CurrentUser.OpenSubKey("Environment", true);
+                    pathType = "user PATH";
+                }
+                else
+                {
+                    // System-level PATH (HKEY_LOCAL_MACHINE)
+                    key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", true);
+                    pathType = "system PATH";
+                }
+
+                using (key)
                 {
                     var currentPath = key.GetValue("PATH", "", RegistryValueOptions.DoNotExpandEnvironmentNames).ToString();
 
@@ -805,19 +953,46 @@ namespace FFmpegInstaller
                     {
                         var newPath = string.IsNullOrEmpty(currentPath) ? path : $"{currentPath};{path}";
                         key.SetValue("PATH", newPath, RegistryValueKind.ExpandString);
-                        LogMessage("Successfully added to system PATH");
+                        LogMessage($"Successfully added to {pathType}");
                     }
                     else
                     {
-                        LogMessage("Path already exists in system PATH");
+                        LogMessage($"Path already exists in {pathType}");
                     }
                 }
+
+                // Broadcast environment change
+                SendMessageTimeout(
+                    HWND_BROADCAST,
+                    WM_SETTINGCHANGE,
+                    IntPtr.Zero,
+                    "Environment",
+                    SMTO_ABORTIFHUNG,
+                    5000,
+                    out _
+                );
             }
             catch (Exception ex)
             {
-                throw new Exception($"Failed to update system PATH: {ex.Message}");
+                throw new Exception($"Failed to update PATH: {ex.Message}");
             }
         }
+
+        // P/Invoke for broadcasting environment changes
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        private static extern IntPtr SendMessageTimeout(
+            IntPtr hWnd,
+            uint Msg,
+            IntPtr wParam,
+            string lParam,
+            uint fuFlags,
+            uint uTimeout,
+            out IntPtr lpdwResult
+        );
+
+        private static readonly IntPtr HWND_BROADCAST = new IntPtr(0xffff);
+        private const uint WM_SETTINGCHANGE = 0x001A;
+        private const uint SMTO_ABORTIFHUNG = 0x0002;
 
         private void TestInstallation()
         {
