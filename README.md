@@ -53,7 +53,7 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 4. Click "Install FFmpeg" and wait for completion
 5. Restart your command prompt to use `ffmpeg`
 
-**Version:** 2.5.7
+**Version:** 2.5.8
 **Developer:** oop7  
 **Source Code:** Available in this repository  
 **Requirements:** Windows 10/11 (64-bit) - No .NET installation required
