@@ -18,7 +18,7 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 
 ## Features
 - **Modern GUI installer for Windows** with automatic updates
-- ** Flexible Installation** - Choose user-level (no admin) or system-wide installation
+- **Flexible Installation** - Choose user-level (no admin) or system-wide installation
 - **Build Selection** - Choose between Full, Essentials, or Shared FFmpeg builds
 - **Self-Contained** - No .NET installation required
 - Cross-platform installation guides
