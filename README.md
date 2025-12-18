@@ -38,7 +38,7 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 
 **Features:**
 - Clean, modern Windows Forms interface
-- ** Choose Installation Scope** - User-level (no admin) or System-wide installation
+- **Choose Installation Scope** - User-level (no admin) or System-wide installation
 - **Build Selection** - Choose between Full, Essentials, or Shared builds
 - Real-time download progress with speed indicator
 - Automatic file integrity verification (SHA256)
