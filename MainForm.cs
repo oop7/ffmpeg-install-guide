@@ -1161,7 +1161,10 @@ namespace FFmpegInstaller
                 LogMessage("Checking for application updates...");
 
                 // Add User-Agent header to avoid some rate limiting
-                httpClient.DefaultRequestHeaders.Add("User-Agent", "FFmpegInstaller/2.5");
+                if (!httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+                {
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "FFmpegInstaller/2.5");
+                }
 
                 var response = await httpClient.GetStringAsync(APP_UPDATE_URL);
                 dynamic releaseInfo = Newtonsoft.Json.JsonConvert.DeserializeObject(response);
@@ -1181,18 +1184,43 @@ namespace FFmpegInstaller
                         $"A new version (v{latestVersion}) is available!\n\n" +
                         $"Current version: v{CURRENT_VERSION}\n" +
                         $"Latest version: v{latestVersion}\n\n" +
-                        "Would you like to visit the download page?",
+                        "Would you like to install the update now?",
                         "Update Available",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Information);
 
                     if (result == DialogResult.Yes)
                     {
-                        Process.Start(new ProcessStartInfo
+                        string downloadUrl = null;
+                        string fileName = null;
+
+                        if (releaseInfo.assets != null)
                         {
-                            FileName = REPO_URL + "/releases/latest",
-                            UseShellExecute = true
-                        });
+                            foreach (var asset in releaseInfo.assets)
+                            {
+                                string name = asset.name.ToString();
+                                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    downloadUrl = asset.browser_download_url;
+                                    fileName = name;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (downloadUrl != null)
+                        {
+                            await PerformAutoUpdate(downloadUrl, fileName);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Could not find the update executable. Opening download page instead.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = REPO_URL + "/releases/latest",
+                                UseShellExecute = true
+                            });
+                        }
                     }
                 }
                 else
@@ -1207,6 +1235,51 @@ namespace FFmpegInstaller
             catch (Exception ex)
             {
                 LogMessage($"Could not check for updates: {ex.Message}");
+            }
+        }
+
+        private async Task PerformAutoUpdate(string url, string fileName)
+        {
+            try
+            {
+                LogMessage("Downloading update...");
+                string tempPath = Path.Combine(Path.GetTempPath(), fileName);
+
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+
+                var data = await httpClient.GetByteArrayAsync(url);
+                File.WriteAllBytes(tempPath, data);
+
+                LogMessage("Update downloaded. Restarting...");
+
+                string currentExe = Process.GetCurrentProcess().MainModule.FileName;
+                string batchPath = Path.Combine(Path.GetTempPath(), "ffmpeg_installer_update.bat");
+                
+                string batchContent = $@"
+@echo off
+timeout /t 2 /nobreak > NUL
+:retry
+del ""{currentExe}""
+if exist ""{currentExe}"" goto retry
+move ""{tempPath}"" ""{currentExe}""
+start """" ""{currentExe}""
+del ""%~f0""
+";
+                File.WriteAllText(batchPath, batchContent);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = batchPath,
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                });
+
+                Application.Exit();
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Update failed: {ex.Message}");
+                MessageBox.Show($"Update failed: {ex.Message}", "Update Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
