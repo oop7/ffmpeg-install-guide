@@ -46,7 +46,7 @@ namespace FFmpegInstaller
         private const string PORTABLE_7Z_URL = "https://www.7-zip.org/a/7za920.zip";
         private const string APP_UPDATE_URL = "https://api.github.com/repos/oop7/ffmpeg-install-guide/releases/latest";
         private const string REPO_URL = "https://github.com/oop7/ffmpeg-install-guide";
-        private const string CURRENT_VERSION = "2.5.9";
+        private const string CURRENT_VERSION = "2.6.0";
 
         private static readonly Dictionary<FFmpegBuildType, BuildInfo> BuildInfos = new Dictionary<FFmpegBuildType, BuildInfo>
         {
