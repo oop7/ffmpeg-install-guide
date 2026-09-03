@@ -752,9 +752,15 @@ namespace FFmpegInstaller
                     var lastDownloadedBytes = 0L;
 
                     using (var contentStream = await response.Content.ReadAsStreamAsync())
-                    using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write))
+                    using (var fileStream = new FileStream(
+                        tempFile,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        1024 * 1024,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan))
                     {
-                        var buffer = new byte[8192];
+                        var buffer = new byte[1024 * 1024];
                         int bytesRead;
 
                         while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
