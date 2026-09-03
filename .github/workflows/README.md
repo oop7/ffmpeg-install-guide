@@ -6,7 +6,7 @@ This directory contains CI/CD workflows for the FFmpeg Installer project.
 
 ### 1. Build and Release (`build-release.yml`)
 
-**Trigger**: Push a version tag (e.g., `v2.5.9`)
+**Trigger**: Run manually from the GitHub Actions tab
 
 **Purpose**: Automatically builds the installer and creates a draft GitHub release.
 
@@ -20,13 +20,9 @@ This directory contains CI/CD workflows for the FFmpeg Installer project.
 **How to use**:
 
 ```bash
-# Create and push a version tag
-git tag v2.5.9
-git push origin v2.5.9
-
-# Or create an annotated tag with message
-git tag -a v2.5.9 -m "Release version 2.5.9 - Added build selection feature"
-git push origin v2.5.9
+# No tag command is required.
+# In GitHub, open Actions > Build and Release > Run workflow.
+# Enter the version without the v prefix, for example: 2.5.9
 ```
 
 After the workflow completes:
@@ -50,14 +46,14 @@ After the workflow completes:
 - ✅ Uploads build artifacts for commits to main branch
 - ✅ Runs on every PR to catch issues early
 
-## Version Tag Format
+## Version Format
 
-Use semantic versioning with a `v` prefix:
-- `v2.5.9` - Major.Minor.Patch
-- `v3.0.0` - Major version bump
-- `v2.5.1` - Patch release
+Enter the release version as `major.minor.patch`, without the `v` prefix:
+- `2.5.9` - Major.Minor.Patch
+- `3.0.0` - Major version bump
+- `2.5.1` - Patch release
 
-The workflow extracts the version (removes the `v`) for file naming.
+The workflow creates the corresponding `v`-prefixed release tag automatically.
 
 ## Requirements
 
@@ -97,12 +93,12 @@ Change `draft: true` to `draft: false` in `build-release.yml` to auto-publish.
 
 ### Release not created
 - Ensure you have `contents: write` permission
-- Check that the tag follows the `v*.*.*` format
+- Check that the version uses `major.minor.patch` format
 - Verify the `GITHUB_TOKEN` has sufficient permissions
 
 ### Wrong version in release
-- Check that your tag follows semantic versioning
-- The version is extracted from the tag name (removes `v` prefix)
+- Check the version entered when starting the workflow
+- Enter only the semantic version, without the `v` prefix
 
 ## Example Workflow Run
 
@@ -112,11 +108,10 @@ git add .
 git commit -m "Add new feature X"
 git push origin main
 
-# 2. Create and push version tag
-git tag v2.5.9
-git push origin v2.5.9
+# 2. Open Actions > Build and Release > Run workflow
+#    Enter 2.5.9 as the version
 
-# 3. Workflow automatically:
+# 3. The workflow:
 #    - Builds the installer
 #    - Creates draft release
 #    - Uploads FFmpegInstaller.exe
