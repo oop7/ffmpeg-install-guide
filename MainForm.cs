@@ -725,8 +725,13 @@ namespace FFmpegInstaller
             {
                 if (Directory.Exists(extractDir))
                 {
-                    Directory.Delete(extractDir, true);
-                    LogMessage("Previous installation cleaned up");
+                    var fullPath = Path.GetFullPath(extractDir);
+                    var rootPath = Path.GetPathRoot(fullPath);
+                    if (!string.Equals(fullPath, rootPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Directory.Delete(fullPath, true);
+                        LogMessage("Previous installation cleaned up");
+                    }
                 }
             }
             catch (Exception ex)
@@ -785,25 +790,22 @@ namespace FFmpegInstaller
 
         private async Task DownloadInRangesAsync(string url, long totalBytes)
         {
-            const int rangeCount = 4;
+            const int rangeCount = 8;
             var downloadedBytes = 0L;
             var lastUpdateTime = DateTime.UtcNow;
             var lastDownloadedBytes = 0L;
             var progressLock = new object();
+            var partPaths = Enumerable.Range(0, rangeCount)
+                .Select(index => $"{tempFile}.part{index}")
+                .ToArray();
 
-            using (var fileStream = new FileStream(
-                tempFile,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                1024 * 1024,
-                FileOptions.Asynchronous | FileOptions.RandomAccess))
+            try
             {
-                fileStream.SetLength(totalBytes);
                 var rangeTasks = Enumerable.Range(0, rangeCount).Select(async rangeIndex =>
                 {
                     var start = totalBytes * rangeIndex / rangeCount;
                     var end = totalBytes * (rangeIndex + 1) / rangeCount - 1;
+                    var expectedLength = end - start + 1;
 
                     using (var request = new HttpRequestMessage(HttpMethod.Get, url))
                     {
@@ -816,15 +818,28 @@ namespace FFmpegInstaller
                                 throw new HttpRequestException("The download server did not honor byte ranges.");
                             }
 
+                            var contentRange = response.Content.Headers.ContentRange;
+                            if (contentRange == null || contentRange.From != start || contentRange.To != end)
+                            {
+                                throw new HttpRequestException("The download server returned an invalid byte range.");
+                            }
+
                             using (var contentStream = await response.Content.ReadAsStreamAsync())
+                            using (var partStream = new FileStream(
+                                partPaths[rangeIndex],
+                                FileMode.Create,
+                                FileAccess.Write,
+                                FileShare.None,
+                                1024 * 1024,
+                                FileOptions.Asynchronous | FileOptions.SequentialScan))
                             {
                                 var buffer = new byte[1024 * 1024];
-                                var position = start;
+                                var partBytes = 0L;
                                 int bytesRead;
                                 while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                                 {
-                                    await RandomAccess.WriteAsync(fileStream.SafeFileHandle, buffer.AsMemory(0, bytesRead), position);
-                                    position += bytesRead;
+                                    await partStream.WriteAsync(buffer, 0, bytesRead);
+                                    partBytes += bytesRead;
 
                                     lock (progressLock)
                                     {
@@ -841,12 +856,44 @@ namespace FFmpegInstaller
                                         progressBar.Value = Math.Min((int)(downloadedBytes * 30 / totalBytes) + 10, 40);
                                     }
                                 }
+
+                                if (partBytes != expectedLength)
+                                {
+                                    throw new IOException($"Range {start}-{end} returned {partBytes} bytes instead of {expectedLength}.");
+                                }
                             }
                         }
                     }
                 });
 
                 await Task.WhenAll(rangeTasks);
+
+                using (var outputStream = new FileStream(
+                    tempFile,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    1024 * 1024,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan))
+                {
+                    foreach (var partPath in partPaths)
+                    {
+                        using (var partStream = new FileStream(partPath, FileMode.Open, FileAccess.Read, 1024 * 1024, true))
+                        {
+                            await partStream.CopyToAsync(outputStream, 1024 * 1024);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var partPath in partPaths)
+                {
+                    if (File.Exists(partPath))
+                    {
+                        File.Delete(partPath);
+                    }
+                }
             }
         }
 
