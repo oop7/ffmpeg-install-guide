@@ -94,7 +94,11 @@ namespace FFmpegInstaller
         private readonly string tempExtractDir = Path.Combine(Path.GetTempPath(), "ffmpeg-extract");
         private readonly string portable7z = Path.Combine(Path.GetTempPath(), "7z-zip\\7za.exe");
 
-        private readonly HttpClient httpClient = new HttpClient();
+        private readonly HttpClient httpClient = new HttpClient(new SocketsHttpHandler
+        {
+            MaxConnectionsPerServer = 16,
+            AutomaticDecompression = System.Net.DecompressionMethods.None
+        });
         private string latestVersion = "Unknown";
         private string expectedHash = null;
         private bool isInstalling = false;
@@ -790,7 +794,7 @@ namespace FFmpegInstaller
 
         private async Task DownloadInRangesAsync(string url, long totalBytes)
         {
-            const int rangeCount = 8;
+            const int rangeCount = 16;
             var downloadedBytes = 0L;
             var lastUpdateTime = DateTime.UtcNow;
             var lastDownloadedBytes = 0L;
