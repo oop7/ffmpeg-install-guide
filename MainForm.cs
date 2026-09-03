@@ -7,9 +7,11 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -740,57 +742,14 @@ namespace FFmpegInstaller
                 var buildInfo = BuildInfos[selectedBuildType];
                 LogMessage($"Starting download of {buildInfo.Name} build...");
 
-
-                using (var response = await httpClient.GetAsync(buildInfo.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                var totalBytes = await GetDownloadSizeAsync(buildInfo.DownloadUrl);
+                if (totalBytes > 0)
                 {
-                    response.EnsureSuccessStatusCode();
-
-                    var totalBytes = response.Content.Headers.ContentLength ?? 0;
-                    var downloadedBytes = 0L;
-                    var startTime = DateTime.Now;
-                    var lastUpdateTime = startTime;
-                    var lastDownloadedBytes = 0L;
-
-                    using (var contentStream = await response.Content.ReadAsStreamAsync())
-                    using (var fileStream = new FileStream(
-                        tempFile,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        1024 * 1024,
-                        FileOptions.Asynchronous | FileOptions.SequentialScan))
-                    {
-                        var buffer = new byte[1024 * 1024];
-                        int bytesRead;
-
-                        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                        {
-                            await fileStream.WriteAsync(buffer, 0, bytesRead);
-                            downloadedBytes += bytesRead;
-
-                            var currentTime = DateTime.Now;
-                            var timeElapsed = currentTime - lastUpdateTime;
-
-                            // Update speed every 500ms
-                            if (timeElapsed.TotalMilliseconds >= 500)
-                            {
-                                var bytesSinceLastUpdate = downloadedBytes - lastDownloadedBytes;
-                                var speedBytesPerSecond = bytesSinceLastUpdate / timeElapsed.TotalSeconds;
-                                var speedText = FormatSpeed(speedBytesPerSecond);
-
-                                UpdateSpeedDisplay(speedText);
-
-                                lastUpdateTime = currentTime;
-                                lastDownloadedBytes = downloadedBytes;
-                            }
-
-                            if (totalBytes > 0)
-                            {
-                                var progress = (int)((downloadedBytes * 30) / totalBytes) + 10; // 10-40%
-                                progressBar.Value = Math.Min(progress, 40);
-                            }
-                        }
-                    }
+                    await DownloadInRangesAsync(buildInfo.DownloadUrl, totalBytes);
+                }
+                else
+                {
+                    await DownloadSequentiallyAsync(buildInfo.DownloadUrl);
                 }
 
                 // Clear speed display when download is complete
@@ -803,6 +762,104 @@ namespace FFmpegInstaller
             {
                 UpdateSpeedDisplay("");
                 throw new Exception($"Download failed: {ex.Message}");
+            }
+        }
+
+        private async Task<long> GetDownloadSizeAsync(string url)
+        {
+            using (var request = new HttpRequestMessage(HttpMethod.Get, url))
+            {
+                request.Headers.Range = new RangeHeaderValue(0, 0);
+                using (var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
+                {
+                    response.EnsureSuccessStatusCode();
+                    if (response.StatusCode != System.Net.HttpStatusCode.PartialContent)
+                    {
+                        return 0;
+                    }
+
+                    return response.Content.Headers.ContentRange?.Length ?? 0;
+                }
+            }
+        }
+
+        private async Task DownloadInRangesAsync(string url, long totalBytes)
+        {
+            const int rangeCount = 4;
+            var downloadedBytes = 0L;
+            var lastUpdateTime = DateTime.UtcNow;
+            var lastDownloadedBytes = 0L;
+            var progressLock = new object();
+
+            using (var fileStream = new FileStream(
+                tempFile,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                1024 * 1024,
+                FileOptions.Asynchronous | FileOptions.RandomAccess))
+            {
+                fileStream.SetLength(totalBytes);
+                var rangeTasks = Enumerable.Range(0, rangeCount).Select(async rangeIndex =>
+                {
+                    var start = totalBytes * rangeIndex / rangeCount;
+                    var end = totalBytes * (rangeIndex + 1) / rangeCount - 1;
+
+                    using (var request = new HttpRequestMessage(HttpMethod.Get, url))
+                    {
+                        request.Headers.Range = new RangeHeaderValue(start, end);
+                        using (var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
+                        {
+                            response.EnsureSuccessStatusCode();
+                            if (response.StatusCode != System.Net.HttpStatusCode.PartialContent)
+                            {
+                                throw new HttpRequestException("The download server did not honor byte ranges.");
+                            }
+
+                            using (var contentStream = await response.Content.ReadAsStreamAsync())
+                            {
+                                var buffer = new byte[1024 * 1024];
+                                var position = start;
+                                int bytesRead;
+                                while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                                {
+                                    await RandomAccess.WriteAsync(fileStream.SafeFileHandle, buffer.AsMemory(0, bytesRead), position);
+                                    position += bytesRead;
+
+                                    lock (progressLock)
+                                    {
+                                        downloadedBytes += bytesRead;
+                                        var now = DateTime.UtcNow;
+                                        var elapsed = now - lastUpdateTime;
+                                        if (elapsed.TotalMilliseconds >= 500)
+                                        {
+                                            UpdateSpeedDisplay(FormatSpeed((downloadedBytes - lastDownloadedBytes) / elapsed.TotalSeconds));
+                                            lastUpdateTime = now;
+                                            lastDownloadedBytes = downloadedBytes;
+                                        }
+
+                                        progressBar.Value = Math.Min((int)(downloadedBytes * 30 / totalBytes) + 10, 40);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                await Task.WhenAll(rangeTasks);
+            }
+        }
+
+        private async Task DownloadSequentiallyAsync(string url)
+        {
+            using (var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
+            {
+                response.EnsureSuccessStatusCode();
+                using (var contentStream = await response.Content.ReadAsStreamAsync())
+                using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, 1024 * 1024, true))
+                {
+                    await contentStream.CopyToAsync(fileStream, 1024 * 1024);
+                }
             }
         }
 
