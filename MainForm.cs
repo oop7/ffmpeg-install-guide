@@ -856,7 +856,13 @@ namespace FFmpegInstaller
             {
                 response.EnsureSuccessStatusCode();
                 using (var contentStream = await response.Content.ReadAsStreamAsync())
-                using (var fileStream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, 1024 * 1024, true))
+                using (var fileStream = new FileStream(
+                    tempFile,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    1024 * 1024,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan))
                 {
                     await contentStream.CopyToAsync(fileStream, 1024 * 1024);
                 }
