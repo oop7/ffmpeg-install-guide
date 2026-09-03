@@ -878,7 +878,13 @@ namespace FFmpegInstaller
                 {
                     foreach (var partPath in partPaths)
                     {
-                        using (var partStream = new FileStream(partPath, FileMode.Open, FileAccess.Read, 1024 * 1024, true))
+                        using (var partStream = new FileStream(
+                            partPath,
+                            FileMode.Open,
+                            FileAccess.Read,
+                            FileShare.Read,
+                            1024 * 1024,
+                            FileOptions.Asynchronous | FileOptions.SequentialScan))
                         {
                             await partStream.CopyToAsync(outputStream, 1024 * 1024);
                         }
