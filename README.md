@@ -19,6 +19,7 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 ## Features
 - **Modern GUI installer for Windows** with automatic updates
 - **Flexible Installation** - Choose user-level (no admin) or system-wide installation
+- **Custom Installation Location** - Choose any local folder or drive, including `D:\` and `E:\`
 - **Build Selection** - Choose between Full, Essentials, or Shared FFmpeg builds
 - **Self-Contained** - No .NET installation required
 - Cross-platform installation guides
@@ -52,9 +53,10 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 3. **Choose installation scope:**
    - **User Installation** (Recommended) - No admin required, installs to your account only
    - **System-wide Installation** - Requires admin (UAC prompt), available to all users
-4. Select your preferred FFmpeg build (Full/Essentials/Shared)
-5. Click "Install FFmpeg" and wait for completion
-6. Restart your command prompt to use `ffmpeg`
+4. Choose the **Installation folder** and click **Browse...** to select a folder on any available drive, such as `D:\Applications\ffmpeg`
+5. Select your preferred FFmpeg build (Full/Essentials/Shared)
+6. Click "Install FFmpeg" and wait for completion
+7. Restart your command prompt to use `ffmpeg`
 
 **Version:** 2.6.0
 **Developer:** oop7  
@@ -72,13 +74,13 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
    - `ffmpeg-release-shared.zip` for shared libraries
 
 3. System Setup:
-   1. Extract the ZIP file to a permanent location (e.g., `C:\ffmpeg`)
+   1. Extract the ZIP file to a permanent location on any drive (e.g., `D:\ffmpeg`)
    2. Add FFmpeg to System Path:
       - Open System Properties (Right-click `This PC` → Properties)
       - Click `Advanced system settings`
       - Click `Environment Variables`
       - Under `System variables`, select `Path` and click `Edit`
-      - Add new entry: `C:\ffmpeg\bin` (adjust path if needed)
+      - Add new entry: `<your-install-folder>\bin` (for example, `D:\ffmpeg\bin`)
       - Click `OK` on all windows
 
 📺 **Video Tutorial:** [FFmpeg Windows Installation Guide](https://youtu.be/5xgegeBL0kw)

@@ -88,7 +88,7 @@ namespace FFmpegInstaller
             }
         };
 
-        private readonly string extractDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg");
+        private string extractDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg");
         private readonly string tempExtractDir = Path.Combine(Path.GetTempPath(), "ffmpeg-extract");
         private readonly string portable7z = Path.Combine(Path.GetTempPath(), "7z-zip\\7za.exe");
 
@@ -124,6 +124,12 @@ namespace FFmpegInstaller
             {
                 // Skip dialog, directly set to system-wide
                 installationScope = InstallationScope.System;
+                extractDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ffmpeg");
+                var pathArgumentIndex = Array.IndexOf(args, "--path");
+                if (pathArgumentIndex >= 0 && pathArgumentIndex + 1 < args.Length && !string.IsNullOrWhiteSpace(args[pathArgumentIndex + 1]))
+                {
+                    extractDir = Path.GetFullPath(args[pathArgumentIndex + 1]);
+                }
                 LogMessage("Installation scope: system-wide (elevated)");
                 statusLabel.Text = "Ready to install (system-wide)";
             }
@@ -340,7 +346,7 @@ namespace FFmpegInstaller
             var scopeForm = new Form
             {
                 Text = "Installation Scope",
-                Size = new Size(500, 330),
+                Size = new Size(500, 420),
                 StartPosition = FormStartPosition.CenterParent,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 MaximizeBox = false,
@@ -393,17 +399,72 @@ namespace FFmpegInstaller
 
             var systemDesc = new Label
             {
-                Text = "• Requires administrator privileges\n• Available for all users on this computer\n• Installed in Program Files or similar",
+                Text = "• Requires administrator privileges\n• Available for all users on this computer",
                 Font = new Font("Segoe UI", 8.25f),
                 ForeColor = Color.DarkGray,
                 Location = new Point(50, 183),
-                Size = new Size(400, 50)
+                Size = new Size(400, 35)
+            };
+
+            var destinationLabel = new Label
+            {
+                Text = "Installation folder:",
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                Location = new Point(30, 235),
+                Size = new Size(150, 20)
+            };
+
+            var destinationTextBox = new TextBox
+            {
+                Text = extractDir,
+                Location = new Point(30, 260),
+                Size = new Size(340, 23),
+                ReadOnly = true
+            };
+
+            var browseButton = new Button
+            {
+                Text = "Browse...",
+                Location = new Point(380, 258),
+                Size = new Size(90, 27)
+            };
+
+            var destinationEdited = false;
+            userRadio.CheckedChanged += (s, e) =>
+            {
+                if (userRadio.Checked && !destinationEdited)
+                {
+                    destinationTextBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg");
+                }
+            };
+            systemRadio.CheckedChanged += (s, e) =>
+            {
+                if (systemRadio.Checked && !destinationEdited)
+                {
+                    destinationTextBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ffmpeg");
+                }
+            };
+            browseButton.Click += (s, e) =>
+            {
+                using (var folderDialog = new FolderBrowserDialog
+                {
+                    Description = "Choose where FFmpeg should be installed",
+                    SelectedPath = destinationTextBox.Text,
+                    ShowNewFolderButton = true
+                })
+                {
+                    if (folderDialog.ShowDialog(scopeForm) == DialogResult.OK)
+                    {
+                        destinationTextBox.Text = folderDialog.SelectedPath;
+                        destinationEdited = true;
+                    }
+                }
             };
 
             var continueButton = new Button
             {
                 Text = "Continue",
-                Location = new Point(280, 245),
+                Location = new Point(280, 325),
                 Size = new Size(100, 35),
                 DialogResult = DialogResult.OK,
                 BackColor = Color.FromArgb(0, 120, 215),
@@ -417,7 +478,7 @@ namespace FFmpegInstaller
             var cancelButton = new Button
             {
                 Text = "Cancel",
-                Location = new Point(390, 245),
+                Location = new Point(390, 325),
                 Size = new Size(90, 35),
                 DialogResult = DialogResult.Cancel,
                 FlatStyle = FlatStyle.Flat,
@@ -428,15 +489,25 @@ namespace FFmpegInstaller
                 titleLabel, descLabel,
                 userRadio, userDesc,
                 systemRadio, systemDesc,
+                destinationLabel, destinationTextBox, browseButton,
                 continueButton, cancelButton
             });
 
             var result = scopeForm.ShowDialog(this);
             if (result == DialogResult.OK)
             {
+                if (string.IsNullOrWhiteSpace(destinationTextBox.Text) || !Path.IsPathRooted(destinationTextBox.Text))
+                {
+                    MessageBox.Show("Please choose a valid installation folder.", "Invalid Installation Folder",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return ShowInstallationScopeDialog();
+                }
+
                 installationScope = userRadio.Checked ? InstallationScope.User : InstallationScope.System;
+                extractDir = Path.GetFullPath(destinationTextBox.Text.Trim());
                 var scopeText = installationScope == InstallationScope.User ? "user-level" : "system-wide";
                 LogMessage($"Installation scope selected: {scopeText}");
+                LogMessage($"Installation folder selected: {extractDir}");
                 statusLabel.Text = $"Ready to install ({scopeText})";
                 return true;
             }
@@ -464,9 +535,11 @@ namespace FFmpegInstaller
                             {
                                 FileName = Application.ExecutablePath,
                                 UseShellExecute = true,
-                                Verb = "runas", // Request elevation
-                                Arguments = "--system" // Pass flag to indicate system-wide install
+                                Verb = "runas" // Request elevation
                             };
+                            startInfo.ArgumentList.Add("--system");
+                            startInfo.ArgumentList.Add("--path");
+                            startInfo.ArgumentList.Add(extractDir);
                             
                             Process.Start(startInfo);
                             Environment.Exit(0); // Immediate exit to prevent duplicate windows
