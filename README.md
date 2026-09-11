@@ -13,6 +13,7 @@ A modern Windows application and comprehensive guide for installing FFmpeg acros
 - [Linux Installation](#linux-installation)
 - [Verification](#verification)
 - [Building from Source](#building-from-source)
+- [Sponsorship](#sponsorship)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -212,6 +213,13 @@ For more details, see the [Workflows README](.github/workflows/README.md).
    - Restart command prompt/PowerShell
    - Check if PATH was updated: `echo $env:PATH` (PowerShell) or `echo %PATH%` (CMD)
    - Manually add to PATH if needed
+
+## Sponsorship
+If FFmpeg Installer is useful to you, you can support its development through:
+
+*   **GitHub Sponsors**: [Sponsor on GitHub](https://github.com/sponsors/oop7)
+*   **Buy Me a Coffee**: [Buy me a coffee](https://www.buymeacoffee.com/oop7)
+*   **Direct bank transfer / SWIFT**: Contact me via email at [`oop7_support@proton.me`](mailto:oop7_support@proton.me)
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
